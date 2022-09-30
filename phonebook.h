@@ -52,7 +52,7 @@ struct arr_entry *pb_lookup(char *key, struct phonebook_entry *holder)
     int pos = pb_hash(key, ENTRY_AMOUNT, INT_A, INT_B, INT_LE);
     if (holder[pos].data)
     {
-        for (int i = 0; i<holder[pos].datalen; i++)
+        for (int i = 0; i < holder[pos].datalen; i++)
         {
             if (strcmp(holder[pos].data[i].key, key) == 0)
             {
@@ -63,24 +63,25 @@ struct arr_entry *pb_lookup(char *key, struct phonebook_entry *holder)
     }
 }
 
-int pb_create( char *key, char *value, struct phonebook_entry *holder)
+int pb_create(char *key, char *value, struct phonebook_entry *holder)
 {
     int pos = pb_hash(key, ENTRY_AMOUNT, INT_A, INT_B, INT_LE);
     holder[pos].hash = pos;
-    if(!pb_lookup(key,holder)){
-    if (holder[pos].data)
+    if (!pb_lookup(key, holder))
     {
-        holder[pos].data = realloc(holder[pos].data, (1 + holder[pos].datalen) * sizeof(struct arr_entry));
-        holder[pos].data[holder[pos].datalen].key = strdup(key);
-        holder[pos].data[holder[pos].datalen].value = strdup(value);
-        holder[pos].datalen++;
+        if (holder[pos].data)
+        {
+            holder[pos].data = realloc(holder[pos].data, (1 + holder[pos].datalen) * sizeof(struct arr_entry));
+            holder[pos].data[holder[pos].datalen].key = strdup(key);
+            holder[pos].data[holder[pos].datalen].value = strdup(value);
+            holder[pos].datalen++;
+            return 0;
+        }
+        holder[pos].data = malloc(sizeof(struct arr_entry));
+        holder[pos].datalen = 1;
+        holder[pos].data[0].key = strdup(key);
+        holder[pos].data[0].value = strdup(value);
         return 0;
-    }
-    holder[pos].data = malloc(sizeof(struct arr_entry));
-    holder[pos].datalen = 1;
-    holder[pos].data[0].key = strdup(key);
-    holder[pos].data[0].value = strdup(value);
-    return 0;
     }
     return 1;
 }
@@ -104,19 +105,19 @@ int pb_remove(char *key, struct phonebook_entry *holder)
             }
             else
             {
-                holder[pos].data[i-1] = holder[pos].data[i];
+                holder[pos].data[i - 1] = holder[pos].data[i];
                 continue;
             }
         }
     }
-    if(removemode == 1){
+    if (removemode == 1)
+    {
         holder[pos].datalen--;
     }
 }
 
 int pb_init(struct phonebook_entry *holder)
 {
-
     static const char *JSON_STRING =
         "{\"user\": \"johndoe\", \"admin\": false,\"admin\": true,  \"uid\": 1000}";
     jsmn_parser parser;
@@ -143,4 +144,28 @@ int pb_init(struct phonebook_entry *holder)
         char *value = strndup(JSON_STRING + tokens[i + 1].start, tokens[i + 1].end - tokens[i + 1].start);
         pb_create(key, value, holder);
     }
+}
+
+int pb_write(struct phonebook_entry *holder)
+{
+    char *JSON_STRING = malloc(sizeof(char) * 2);
+    JSON_STRING = strdup("{");
+    for (int i = 0; i < ENTRY_AMOUNT; i++)
+    {
+        int currlen = 0;
+        if (holder[i].datalen > 0)
+        {
+            for (int j = 0; j < holder[i].datalen; j++)
+            {
+                char *prepend = (strcmp(JSON_STRING, "{") == 0) ? "\"" : ",\"";
+                currlen += strlen("\"\"\"\":");
+                currlen += strlen(holder[i].data[j].key);
+                currlen += strlen(holder[i].data[j].value);
+                JSON_STRING = realloc(JSON_STRING, (currlen + 2) * sizeof(char));
+                JSON_STRING = strs_cat((const char *[]){JSON_STRING, prepend, holder[i].data[j].key, "\"", ":", "\"", holder[i].data[j].value, "\"", ""});
+            }
+        }
+    }
+    JSON_STRING = strcat(JSON_STRING, "}");
+    //can now write to file
 }
