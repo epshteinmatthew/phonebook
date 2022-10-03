@@ -5,7 +5,7 @@
 
 phonebook is a key value database a lot like redis, working entierely in RAM. The central idea is that you do all database operations inside RAM, and commit to memory when the program ends.
 
-##The API(these arent docs, justa breif description):
+## The API(these arent docs, justa breif description):
 
 - pb_init() is a function that loads in the key value pairs from disk and into memory. this should be called before any other functions in the API
 - pb_create() is a function that creates a key value pair in the database
@@ -14,7 +14,7 @@ phonebook is a key value database a lot like redis, working entierely in RAM. Th
 - pb_remove() is a function that removes an entry in the database by its key
 - pb_write() is a function that saves the key value pairs to disk. use this as a "save button" 
 
-##credits
+## credits
 
 - @zserge for creating JSMN library, on which this code depends
 - @weijuwang for helpful suggestions
