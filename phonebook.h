@@ -31,29 +31,32 @@ Manipulations happens only in RAM, then saves on progream exit
 #define PB_DIR "/home/matthew/Documents/pdftomd/phonebook" // change per user
 #define ENTRY_AMOUNT 5000
 
-struct phonebook
-{
-    struct phonebook_entry* holder;
-    unsigned int a;
-    unsigned int b;
-    int size;
-    unsigned int prime;
-    int created;
-
-};
-
-struct arr_entry
+typedef struct arr_entry
 {
     char *key;
     char *value;
-};
+} arr_entry;
 
-struct phonebook_entry
+typedef struct phonebook_entry
 {
     unsigned int hash;
     int datalen;
-    struct arr_entry *data;
-};
+    arr_entry *data;
+} phonebook_entry;
+
+typedef struct phonebook
+{
+    phonebook_entry* holder;
+    int size;
+    unsigned int prime;
+    unsigned int b;
+    unsigned int a;
+    int created;
+
+} phonebook;
+
+
+
 
 /**
  * @brief a function that concatenates several string. see strcat() for reference
@@ -95,7 +98,7 @@ char *strs_cat(const char **strs)
  * @note a, b and prime should be constant throught the duration of your progam. otherwise, you will get different results for different keys
  * @return the key, encoded, and in integer form
  */
-unsigned int pb_hash(char *key, struct phonebook phonebook)
+unsigned int pb_hash(char *key, phonebook phonebook)
 {
     unsigned int sum = 0;
     int index = 0;
@@ -117,7 +120,7 @@ unsigned int pb_hash(char *key, struct phonebook phonebook)
  * @param holder the array of entries that serves as your database
  * @return the array entry looked up. if the lookup fails, NULL is returned
  */
-struct arr_entry *pb_lookup(char *key, struct phonebook phonebook)
+struct arr_entry *pb_lookup(char *key, phonebook phonebook)
 {
     int pos = pb_hash(key,phonebook);
     if (phonebook.holder[pos].data)
@@ -141,7 +144,7 @@ struct arr_entry *pb_lookup(char *key, struct phonebook phonebook)
  * @param holder the array of entries that serves as your database
  * @return an int status code, either PB_GENERIC_SUCCESS or PB_CREATE_FAILURE
  */
-int pb_create(char *key, char *value, struct phonebook phonebook)
+int pb_create(char *key, char *value, phonebook phonebook)
 {
     int pos = pb_hash(key, phonebook);
     phonebook.holder[pos].hash = pos;
@@ -149,13 +152,13 @@ int pb_create(char *key, char *value, struct phonebook phonebook)
     {
         if (phonebook.holder[pos].datalen > 0)
         {
-            phonebook.holder[pos].data = realloc(phonebook.holder[pos].data, (1 + phonebook.holder[pos].datalen) * sizeof(struct arr_entry));
+            phonebook.holder[pos].data = realloc(phonebook.holder[pos].data, (1 + phonebook.holder[pos].datalen) * sizeof(arr_entry));
             phonebook.holder[pos].data[phonebook.holder[pos].datalen].key = strdup(key);
             phonebook.holder[pos].data[phonebook.holder[pos].datalen].value = strdup(value);
             phonebook.holder[pos].datalen++;
             return 0;
         }
-        phonebook.holder[pos].data = malloc(sizeof(struct arr_entry));
+        phonebook.holder[pos].data = malloc(sizeof(arr_entry));
         phonebook.holder[pos].datalen = 1;
         phonebook.holder[pos].data[0].key = strdup(key);
         phonebook.holder[pos].data[0].value = strdup(value);
@@ -164,7 +167,7 @@ int pb_create(char *key, char *value, struct phonebook phonebook)
     return PB_CREATE_FAILURE;
 }
 
-int pb_remove(char *key, struct phonebook phonebook)
+int pb_remove(char *key, phonebook phonebook)
 {
     int pos = pb_hash(key,phonebook);
     int removemode = 0;
@@ -199,8 +202,11 @@ int pb_remove(char *key, struct phonebook phonebook)
     return PB_REMOVE_FAILURE;
 }
 
-int pb_init(struct phonebook phonebook, char *filename)
+int pb_init(phonebook *phonebook, char *filename)
 {
+    phonebook->a = 1 + (rand() % (phonebook->prime-1-1));
+    phonebook->b = (rand() % (phonebook->prime - 1));
+    phonebook->size = 5000;
     FILE *fp;
     fp = fopen(filename, "r");
     if(fseek(fp, 0L, SEEK_END) != 0){perror("seeking");return 1;};
@@ -231,16 +237,14 @@ int pb_init(struct phonebook phonebook, char *filename)
     {
         char *key = strndup(JSON_STRING + tokens[i].start, tokens[i].end - tokens[i].start);
         char *value = strndup(JSON_STRING + tokens[i + 1].start, tokens[i + 1].end - tokens[i + 1].start);
-        if(pb_create(key, value, phonebook) == PB_CREATE_FAILURE) {return PB_CREATE_FAILURE;}
+        if(pb_create(key, value, *phonebook) == PB_CREATE_FAILURE) {return PB_CREATE_FAILURE;}
     }
 
-    phonebook.a = (rand()) + 1;
-    phonebook.b = (rand());
     //other stuff
     return PB_GENERIC_SUCCESS;
 }
 
-int pb_write(struct phonebook phonebook, char *filename)
+int pb_write(phonebook phonebook, char *filename)
 {
     char *JSON_STRING = malloc(sizeof(char) * 2);
     JSON_STRING = strdup("{");
