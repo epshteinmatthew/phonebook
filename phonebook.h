@@ -101,12 +101,12 @@ unsigned int pb_hash(char *key, phonebook phonebook)
         sum += (int)key[index];
         index++;
     }
-    if (phonebook.created == PB_GENERIC_FAILURE)
+    if (phonebook.created == PB_GENERIC_SUCCESS)
     {
         sum = (((phonebook.a * sum) + phonebook.b) % phonebook.prime) % phonebook.size;
         return sum;
     }
-    return NULL;
+    return -1;
 }
 
 /**
@@ -143,9 +143,10 @@ struct arr_entry *pb_lookup(char *key, phonebook phonebook)
 int pb_create(char *key, char *value, phonebook phonebook)
 {
     int pos = pb_hash(key, phonebook);
-    phonebook.holder[pos].hash = pos;
-    if (!pb_lookup(key, phonebook) && pos)
+    if (!pb_lookup(key, phonebook) && pos!=-1)
     {
+
+        phonebook.holder[pos].hash = pos;
         if (phonebook.holder[pos].datalen > 0)
         {
             phonebook.holder[pos].data = realloc(phonebook.holder[pos].data, (1 + phonebook.holder[pos].datalen) * sizeof(arr_entry));
@@ -163,11 +164,11 @@ int pb_create(char *key, char *value, phonebook phonebook)
     return PB_CREATE_FAILURE;
 }
 /**
- * @brief 
- * 
+ * @brief
+ *
  * @param key the string that is the key of the entry you want to remove
  * @param phonebook the database your are removing an entry from
- * @return a statuscode, PB_GENERIC SUCCESS for success and PB_GENERIC_FAILURE for failure 
+ * @return a statuscode, PB_GENERIC SUCCESS for success and PB_GENERIC_FAILURE for failure
  */
 int pb_remove(char *key, phonebook phonebook)
 {
@@ -205,7 +206,7 @@ int pb_remove(char *key, phonebook phonebook)
 }
 /**
  * @brief a function that initializes the database. should be called before any other pb_ functions
- * 
+ *
  * @param phonebook the (POINTER TO) the database your are initalizing
  * @param filename the name of the .pb file you are reading from. .pb files should be in JSON format.
  * @return a statuscode, PB_GENERIC_SUCCESS for success and JSON_PARSE_FAILURE or PB_CREATE FAILURE for failures
@@ -219,6 +220,9 @@ int pb_init(phonebook *phonebook, char *filename)
     phonebook->created = PB_GENERIC_SUCCESS;
     FILE *fp;
     fp = fopen(filename, "r");
+    if(!fp){
+        return 1;
+    }
     if (fseek(fp, 0L, SEEK_END) != 0)
     {
         perror("seeking");
@@ -249,11 +253,14 @@ int pb_init(phonebook *phonebook, char *filename)
     }
     for (int i = 1; i < obj; i += 2)
     {
-        char *key = strndup(JSON_STRING + tokens[i].start, tokens[i].end - tokens[i].start);
-        char *value = strndup(JSON_STRING + tokens[i + 1].start, tokens[i + 1].end - tokens[i + 1].start);
-        if (pb_create(key, value, *phonebook) == PB_CREATE_FAILURE)
+        if (tokens[i].type == JSMN_STRING && tokens[i + 1].type == JSMN_STRING)
         {
-            return PB_CREATE_FAILURE;
+            char *key = strndup(JSON_STRING + tokens[i].start, tokens[i].end - tokens[i].start);
+            char *value = strndup(JSON_STRING + tokens[i + 1].start, tokens[i + 1].end - tokens[i + 1].start);
+            if (pb_create(key, value, *phonebook) == PB_CREATE_FAILURE)
+            {
+                return PB_CREATE_FAILURE;
+            }
         }
     }
 
@@ -261,10 +268,9 @@ int pb_init(phonebook *phonebook, char *filename)
     return PB_GENERIC_SUCCESS;
 }
 
-
 /**
  * @brief a function that writes a phonebook database to disk
- * 
+ *
  * @param phonebook the database you are writing to disk
  * @param filename the name of the .pb file you are writing to. .pb files should be in JSON format.
  * @return a status code, PB_GENERIC_SUCCESS for success and PB_WRITE FAILURE for faulure.
