@@ -7,7 +7,7 @@
 
 #define INT_A 1306858826
 #define INT_B 1130263739
-//maybe generate new constants on pb_init?
+// maybe generate new constants on pb_init?
 
 #define PB_GENERIC_SUCCESS 0
 #define PB_GENERIC_FAILURE 1
@@ -15,6 +15,7 @@
 #define PB_CREATE_FAILURE 3
 #define PB_WRITE_FAILURE 4
 #define PB_REMOVE_FAILURE 5
+#define PB_HASH_FAILURE 6
 #define PB_LOOKUP_FAILURE NULL
 
 /*
@@ -46,7 +47,7 @@ typedef struct phonebook_entry
 
 typedef struct phonebook
 {
-    phonebook_entry* holder;
+    phonebook_entry *holder;
     int size;
     unsigned int prime;
     unsigned int b;
@@ -55,12 +56,9 @@ typedef struct phonebook
 
 } phonebook;
 
-
-
-
 /**
  * @brief a function that concatenates several string. see strcat() for reference
- * 
+ *
  * @param strs an array of strings you want to concat. use format (const char *[]){} for the array
  * @return a concatenated string consisting of the strings you passed in
  * @note this returns a string that has been memory allocated, you are responsible for freeing it
@@ -74,7 +72,7 @@ char *strs_cat(const char **strs)
     for (int i = 0; strs[i][0] != '\0'; ++i)
     {
         curr_len += strlen(strs[i]);
-        output = realloc(output, (curr_len+1) * sizeof(char));
+        output = realloc(output, (curr_len + 1) * sizeof(char));
         if (i == 0)
         {
             strcpy(output, strs[i]);
@@ -86,17 +84,12 @@ char *strs_cat(const char **strs)
     return output;
 }
 
-
 /**
  * @brief a multiplicative hash function.
- * 
- * @param key the string that should be encoded 
- * @param size maximum value for your output
- * @param a a random integer between 1 and prime-1
- * @param b a random integer between 0 and prime-1
- * @param prime a prime integer greater than size
- * @note a, b and prime should be constant throught the duration of your progam. otherwise, you will get different results for different keys
- * @return the key, encoded, and in integer form
+ *
+ * @param key the string that should be encoded
+ * @param phonebook the database your are creating a hash in
+ * @return the key, encoded, and in integer form. returns NULL if the database hasnt been intialized.
  */
 unsigned int pb_hash(char *key, phonebook phonebook)
 {
@@ -108,21 +101,24 @@ unsigned int pb_hash(char *key, phonebook phonebook)
         sum += (int)key[index];
         index++;
     }
-    sum = (((phonebook.a * sum) + phonebook.b) % phonebook.prime) % phonebook.size;
-    return sum;
+    if (phonebook.created == PB_GENERIC_FAILURE)
+    {
+        sum = (((phonebook.a * sum) + phonebook.b) % phonebook.prime) % phonebook.size;
+        return sum;
+    }
+    return NULL;
 }
-
 
 /**
  * @brief A function that looks up an entry in the database by key
- * 
- * @param key the string you want to look up 
- * @param holder the array of entries that serves as your database
+ *
+ * @param key the string you want to look up
+ * @param phonebook the database your are looking up  an entry in
  * @return the array entry looked up. if the lookup fails, NULL is returned
  */
 struct arr_entry *pb_lookup(char *key, phonebook phonebook)
 {
-    int pos = pb_hash(key,phonebook);
+    int pos = pb_hash(key, phonebook);
     if (phonebook.holder[pos].data)
     {
         for (int i = 0; i < phonebook.holder[pos].datalen; i++)
@@ -132,23 +128,23 @@ struct arr_entry *pb_lookup(char *key, phonebook phonebook)
                 return &phonebook.holder[pos].data[i];
             }
         }
-        return PB_LOOKUP_FAILURE;
     }
+    return PB_LOOKUP_FAILURE;
 }
 
 /**
  * @brief adds a entry to the database
- * 
+ *
  * @param key the key by which this new entry will be acessed
  * @param value the value stored in the new entry
- * @param holder the array of entries that serves as your database
+ * @param phonebook the database your are adding an entry to
  * @return an int status code, either PB_GENERIC_SUCCESS or PB_CREATE_FAILURE
  */
 int pb_create(char *key, char *value, phonebook phonebook)
 {
     int pos = pb_hash(key, phonebook);
     phonebook.holder[pos].hash = pos;
-    if (!pb_lookup(key, phonebook))
+    if (!pb_lookup(key, phonebook) && pos)
     {
         if (phonebook.holder[pos].datalen > 0)
         {
@@ -166,12 +162,18 @@ int pb_create(char *key, char *value, phonebook phonebook)
     }
     return PB_CREATE_FAILURE;
 }
-
+/**
+ * @brief 
+ * 
+ * @param key the string that is the key of the entry you want to remove
+ * @param phonebook the database your are removing an entry from
+ * @return a statuscode, PB_GENERIC SUCCESS for success and PB_GENERIC_FAILURE for failure 
+ */
 int pb_remove(char *key, phonebook phonebook)
 {
-    int pos = pb_hash(key,phonebook);
+    int pos = pb_hash(key, phonebook);
     int removemode = 0;
-    if (phonebook.holder[pos].data)
+    if (phonebook.holder[pos].data && pos)
     {
         for (int i = 0; i < phonebook.holder[pos].datalen; i++)
         {
@@ -201,20 +203,32 @@ int pb_remove(char *key, phonebook phonebook)
     }
     return PB_REMOVE_FAILURE;
 }
-
+/**
+ * @brief a function that initializes the database. should be called before any other pb_ functions
+ * 
+ * @param phonebook the (POINTER TO) the database your are initalizing
+ * @param filename the name of the .pb file you are reading from. .pb files should be in JSON format.
+ * @return a statuscode, PB_GENERIC_SUCCESS for success and JSON_PARSE_FAILURE or PB_CREATE FAILURE for failures
+ */
 int pb_init(phonebook *phonebook, char *filename)
 {
-    phonebook->a = 1 + (rand() % (phonebook->prime-1-1));
+    phonebook->a = 1 + (rand() % (phonebook->prime - 1 - 1));
     phonebook->b = (rand() % (phonebook->prime - 1));
     phonebook->size = 5000;
+    phonebook->prime = 2147483647;
+    phonebook->created = PB_GENERIC_SUCCESS;
     FILE *fp;
     fp = fopen(filename, "r");
-    if(fseek(fp, 0L, SEEK_END) != 0){perror("seeking");return 1;};
+    if (fseek(fp, 0L, SEEK_END) != 0)
+    {
+        perror("seeking");
+        return 1;
+    };
     int sz = ftell(fp);
     char JSON_STRING[sz];
     JSON_STRING[sz] = '\0';
     rewind(fp);
-    fread(JSON_STRING, 1,sz,  (FILE *)fp);
+    fread(JSON_STRING, 1, sz, (FILE *)fp);
     jsmn_parser parser;
     jsmn_init(&parser);
     int count = jsmn_parse(&parser, JSON_STRING, strlen(JSON_STRING), NULL, 0);
@@ -237,13 +251,24 @@ int pb_init(phonebook *phonebook, char *filename)
     {
         char *key = strndup(JSON_STRING + tokens[i].start, tokens[i].end - tokens[i].start);
         char *value = strndup(JSON_STRING + tokens[i + 1].start, tokens[i + 1].end - tokens[i + 1].start);
-        if(pb_create(key, value, *phonebook) == PB_CREATE_FAILURE) {return PB_CREATE_FAILURE;}
+        if (pb_create(key, value, *phonebook) == PB_CREATE_FAILURE)
+        {
+            return PB_CREATE_FAILURE;
+        }
     }
 
-    //other stuff
+    // other stuff
     return PB_GENERIC_SUCCESS;
 }
 
+
+/**
+ * @brief a function that writes a phonebook database to disk
+ * 
+ * @param phonebook the database you are writing to disk
+ * @param filename the name of the .pb file you are writing to. .pb files should be in JSON format.
+ * @return a status code, PB_GENERIC_SUCCESS for success and PB_WRITE FAILURE for faulure.
+ */
 int pb_write(phonebook phonebook, char *filename)
 {
     char *JSON_STRING = malloc(sizeof(char) * 2);
@@ -251,15 +276,15 @@ int pb_write(phonebook phonebook, char *filename)
     for (int i = 0; i < ENTRY_AMOUNT; i++)
     {
         int currlen = 0;
-            for (int j = 0; j < phonebook.holder[i].datalen; j++)
-            {
-                char *prepend = (strcmp(JSON_STRING, "{") == 0) ? "\"" : ",\"";
-                currlen += strlen(",\"\"\"\": ");
-                currlen += strlen(phonebook.holder[i].data[j].key);
-                currlen += strlen(phonebook.holder[i].data[j].value);
-                JSON_STRING = realloc(JSON_STRING, (currlen + 2) * sizeof(char));
-                JSON_STRING = strs_cat((const char *[]){JSON_STRING, prepend, phonebook.holder[i].data[j].key, "\"", ": ", "\"", phonebook.holder[i].data[j].value, "\"", ""});
-            }
+        for (int j = 0; j < phonebook.holder[i].datalen; j++)
+        {
+            char *prepend = (strcmp(JSON_STRING, "{") == 0) ? "\"" : ",\"";
+            currlen += strlen(",\"\"\"\": ");
+            currlen += strlen(phonebook.holder[i].data[j].key);
+            currlen += strlen(phonebook.holder[i].data[j].value);
+            JSON_STRING = realloc(JSON_STRING, (currlen + 2) * sizeof(char));
+            JSON_STRING = strs_cat((const char *[]){JSON_STRING, prepend, phonebook.holder[i].data[j].key, "\"", ": ", "\"", phonebook.holder[i].data[j].value, "\"", ""});
+        }
     }
     JSON_STRING = strcat(JSON_STRING, "}");
     // can now write to file
