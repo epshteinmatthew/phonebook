@@ -1,7 +1,8 @@
 # phonebook
 ## very simple key value database in c
 
-### Status: Usable(I wont be doing any major commits to this repo, i consider it a completed project. feel free to contribute if you want to, however.
+### Status: Usable 
+- (I wont be doing any major commits to this repo, i consider it a completed project. feel free to contribute if you want to, however.)
 
 phonebook is a key value database a lot like redis, working entierely in RAM. The central idea is that you do all database operations inside RAM, and commit to memory when the program ends.
 
