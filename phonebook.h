@@ -15,6 +15,8 @@
 #include <time.h>
 #include <stdlib.h>
 
+#pragma once
+
 
 #define PB_GENERIC_SUCCESS 0
 #define PB_GENERIC_FAILURE 1
@@ -25,9 +27,6 @@
 #define PB_HASH_FAILURE 6
 #define PB_LOOKUP_FAILURE NULL
 
-
-#define PB_DIR "/home/matthew/Documents/pdftomd/phonebook" // change per user
-#define ENTRY_AMOUNT 5000
 
 typedef struct arr_entry
 {
