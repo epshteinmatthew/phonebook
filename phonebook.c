@@ -232,7 +232,7 @@ int pb_write(phonebook phonebook, char *filename)
 {
     char *JSON_STRING = malloc(sizeof(char) * 2);
     JSON_STRING = strdup("{");
-    for (int i = 0; i < ENTRY_AMOUNT; i++)
+    for (int i = 0; i < phonebook.size; i++)
     {
         int currlen = 0;
         for (int j = 0; j < phonebook.holder[i].datalen; j++)
